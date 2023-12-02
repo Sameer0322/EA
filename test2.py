@@ -3,6 +3,7 @@ import numpy as np
 import dlib
 from keras.models import model_from_json
 from imutils import face_utils
+import pymongo
 
 # Load emotion recognition model
 def load_emotion_model():
@@ -44,6 +45,13 @@ predictor = dlib.shape_predictor(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analy
 # Load emotion recognition model
 emotion_model = load_emotion_model()
 
+client = pymongo.MongoClient("mongodb://localhost:27017")
+
+# Create or use a database
+db = client["EA"]
+
+# Create or use a collection within the database
+collection = db["data"]
 # Create video capture object
 cap = cv2.VideoCapture(0)
 
@@ -102,7 +110,7 @@ while True:
                     'eye_state': status,
                     # Add other relevant details
                 }
-
+                collection.insert_one(combined_info)
                 # Handle the combined information (e.g., store in a database, update attendance)
                 print(combined_info)  # Placeholder for your action with the combined information
 
