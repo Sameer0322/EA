@@ -4,6 +4,7 @@ import dlib
 from keras.models import model_from_json
 from imutils import face_utils
 import pymongo
+import time 
 
 # Load emotion recognition model
 def load_emotion_model():
@@ -54,6 +55,7 @@ db = client["EA"]
 collection = db["data"]
 # Create video capture object
 cap = cv2.VideoCapture(0)
+start_time = time.time()
 
 while True:
     _, frame = cap.read()
@@ -105,15 +107,36 @@ while True:
                 cv2.putText(frame, f"Emotion: {emotion_label}", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 cv2.putText(frame, f"Eye State: {status}", (x1, y2 + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
-                combined_info = {
-                    'emotion': emotion_label,
-                    'eye_state': status,
-                    # Add other relevant details
-                }
-                collection.insert_one(combined_info)
-                # Handle the combined information (e.g., store in a database, update attendance)
-                print(combined_info)  # Placeholder for your action with the combined information
 
+                # time.sleep(2)
+                current_time = time.time()
+                
+                if current_time - start_time >= 1:
+                    timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
+                    combined_info = {
+                        '_id': timestamp,  # Using timestamp as a unique identifier
+                        'emotion': emotion_label,
+                        'eye_state': status,
+                        # Add other relevant details
+                    }
+                # collection.insert_one(combined_info)
+                # # Handle the combined information (e.g., store in a database, update attendance)
+                # print(combined_info)  # Placeholder for your action with the combined information
+                # start_time = time.time()
+                # Release everything if job is finished
+                    # Check if the _id already exists in the collection
+                    existing_doc = collection.find_one({'_id': timestamp})
+                    if existing_doc:
+                        # Update the existing document
+                        collection.update_one({'_id': timestamp}, {'$set': combined_info})
+                        print(f"Updated document with _id: {timestamp}")
+                    else:
+                        # Insert a new document
+                        collection.insert_one(combined_info)
+                        print(combined_info)  # Placeholder for your action with the combined information
+
+                    start_time = time.time()  # Reset the timer
+    # Show the output frame
     landmarks_frame = frame.copy()
     for (x, y) in all_landmarks:
         cv2.circle(landmarks_frame, (x, y), 1, (255, 255, 255), -1)

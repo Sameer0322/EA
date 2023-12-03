@@ -1,47 +1,135 @@
-class Face_Recognizer:
-    # ... (existing code)
+import cv2
+import numpy as np
+import dlib
+from keras.models import model_from_json
+from imutils import face_utils
 
-    def process(self, stream):
-        # ... (existing code)
 
-        while stream.isOpened():
-            self.frame_cnt += 1
-            # ... (existing code)
+# Load emotion recognition model
+def load_emotion_model():
+    f_json = open(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\Test\test\emotiondetector.json", "r")
+    m_json = f_json.read()
+    f_json.close()
+    model = model_from_json(m_json)
+    model.load_weights(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\Test\test\emotiondetector.h5")
+    return model
 
-            faces = detector(img_rd, 0)
-            try:
-                for face in faces:
-                    # Extract face region
-                    face_region = img_rd[face.top():face.bottom(), face.left():face.right()]
+# Feature extraction for emotion recognition
+def feature_extraction(image):
+    feature = np.array(image)
+    feature = feature.reshape(1, 48, 48, 1)
+    return feature / 255.0
 
-                    # Emotion Recognition
-                    image = cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY)
-                    image = cv2.resize(image, (48, 48))
-                    img = feature_extraction(image)
-                    pred = model.predict(img)
-                    emotion_label = labels[pred.argmax()]
+# Function to compute distance between two points
+def compute(ptA, ptB):
+    dist = np.linalg.norm(ptA - ptB)
+    return dist
 
-                    # Eye State Analysis
-                    # Use eye state analysis on the face region and get eye state (e.g., sleepy, drowsy, active)
+# Function to determine eye state (sleepy, drowsy, active)
+def blinked(a, b, c, d, e, f):
+    up = compute(b, d) + compute(c, e)
+    down = compute(a, f)
+    ratio = up / (2.0 * down)
 
-                    # Combine face recognition, emotion, and eye state information into a unified structure
-                    combined_info = {
-                        'name': self.current_frame_face_name_list[i],
-                        'emotion': emotion_label,
-                        'eye_state': eye_state_result,  # Update this with the actual eye state result
-                        # Other relevant details
-                    }
+    if ratio > 0.25:
+        return 'Active'
+    elif 0.21 < ratio <= 0.25:
+        return 'Drowsy'
+    else:
+        return 'Sleepy'
 
-                    # Handle the combined information (e.g., store in a database, update attendance)
-                    self.handle_combined_info(combined_info)
+# Load face detector and shape predictor from dlib
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\Test\test\shape_predictor_68_face_landmarks.dat")
 
-                # ... (existing code)
+# Load emotion recognition model
+emotion_model = load_emotion_model()
 
-            except cv2.error:
-                pass
 
-    def handle_combined_info(self, combined_info):
-        # Perform actions with the combined information (e.g., store in a database, update attendance)
-        # Example:
-        print(combined_info)  # Placeholder for your action with the combined information
-        # You can modify this function to update attendance records, store in a database, etc.
+
+# Create or use a database
+
+
+# Create or use a collection within the database
+
+
+# Create video capture object
+cap = cv2.VideoCapture(0)
+
+while True:
+    _, frame = cap.read()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    faces = detector(gray)
+    all_landmarks = []
+    all_statuses = []
+
+    for face in faces:
+        x1 = face.left()
+        y1 = face.top()
+        x2 = face.right()
+        y2 = face.bottom()
+
+        landmarks = predictor(gray, face)
+        landmarks = face_utils.shape_to_np(landmarks)
+        all_landmarks.extend(landmarks)
+
+        left_blink = blinked(landmarks[36], landmarks[37], landmarks[38], landmarks[41], landmarks[40], landmarks[39])
+        right_blink = blinked(landmarks[42], landmarks[43], landmarks[44], landmarks[47], landmarks[46], landmarks[45])
+
+        status = ''
+        if left_blink == 'Sleepy' or right_blink == 'Sleepy':
+            status = 'Sleepy'
+            color = (255, 0, 0)
+        elif left_blink == 'Drowsy' or right_blink == 'Drowsy':
+            status = 'Drowsy'
+            color = (0, 0, 255)
+        else:
+            status = 'Active'
+            color = (0, 255, 0)
+
+        all_statuses.append((status, color, (x1, y1, x2, y2)))
+
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+        # Ensure face_region is not empty before processing it
+        if y2 > y1 and x2 > x1:
+            face_region = frame[y1:y2, x1:x2]
+            if not face_region.size == 0:
+                image = cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY)
+                image = cv2.resize(image, (48, 48))
+                img = feature_extraction(image)
+                pred = emotion_model.predict(img)
+                emotion_label = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise'][pred.argmax()]
+
+                # Display emotion and eye state on the frame
+                cv2.putText(frame, f"Emotion: {emotion_label}", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                cv2.putText(frame, f"Eye State: {status}", (x1, y2 + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+                combined_info = {
+                    'emotion': emotion_label,
+                    'eye_state': status,
+                    # Add other relevant details
+                }
+                # Handle the combined information (e.g., store in a database, update attendance)
+                print(combined_info)  # Placeholder for your action with the combined information
+
+    landmarks_frame = frame.copy()
+    for (x, y) in all_landmarks:
+        cv2.circle(landmarks_frame, (x, y), 1, (255, 255, 255), -1)
+    cv2.imshow("Facial Landmarks", landmarks_frame)
+
+    status_frame = frame.copy()
+    for status, color, (x1, y1, x2, y2) in all_statuses:
+        cv2.rectangle(status_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(status_frame, status, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+    cv2.imshow("Status of Faces", status_frame)
+
+    cv2.imshow("Frame", frame)
+
+    key = cv2.waitKey(1)
+    if key == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
