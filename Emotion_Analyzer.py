@@ -48,11 +48,11 @@ def blinked(a, b, c, d, e, f):
 def load_emotion_model():
     # Function to load the emotion recognition model (from the provided code)
     # ...
-    f_json = open(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\Test\test\emotiondetector.json", "r")
+    f_json = open(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\emotiondetector.json", "r")
     m_json = f_json.read()
     f_json.close()
     model = model_from_json(m_json)
-    model.load_weights(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\Test\test\emotiondetector.h5")
+    model.load_weights(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\emotiondetector.h5")
     return model
 
 # Connect to MongoDB database and get data
@@ -86,8 +86,8 @@ class FaceRecognition:
     def encode_faces(self):
         # Encoding known faces for recognition (from the provided code)
         # ...
-        for image in os.listdir('./faces'):
-            face_image = face_recognition.load_image_file(f'./faces/{image}')
+        for image in os.listdir('./face_data'):
+            face_image = face_recognition.load_image_file(f'./face_data/{image}')
             face_encodings = face_recognition.face_encodings(face_image)
             if face_encodings:
                 self.known_face_encodings.append(face_encodings[0])
@@ -159,7 +159,7 @@ class FaceRecognition:
 
                     # Determine eye state using landmarks
                     detector = dlib.get_frontal_face_detector()
-                    predictor = dlib.shape_predictor(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\Test\test\shape_predictor_68_face_landmarks.dat")
+                    predictor = dlib.shape_predictor(r"C:\Users\saxen\OneDrive\Desktop\Emotion Analyzer\shape_predictor_68_face_landmarks.dat")
                     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     rects = detector(gray, 0)
 
